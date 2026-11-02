@@ -40,6 +40,7 @@
         }
       ],
       "expo-secure-store",
+      ["expo-notifications", { "color": "#173F35", "defaultChannel": "default" }],
       "expo-sharing",
       "@react-native-community/datetimepicker",
       "expo-image",

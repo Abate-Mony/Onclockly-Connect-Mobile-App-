@@ -86,7 +86,7 @@ function PhoneAlerts() {
           <Text style={styles.alertDescription}>{message}</Text>
         </View>
       </View>
-      {error && <Text accessibilityRole="alert" style={styles.alertError}>Couldn't set up phone alerts. Please try again.</Text>}
+      {error && <Text accessibilityRole="alert" style={styles.alertError}>{"Couldn't set up phone alerts. Please try again."}</Text>}
       {status === "denied" ? (
         <StyledPressable accessibilityRole="button" onPress={openSettings} style={({ pressed }) => [styles.alertButton, pressed && styles.pressed]}>
           <Text style={styles.alertButtonText}>Open settings</Text>
@@ -224,8 +224,8 @@ export default function NotificationsScreen() {
         ) : (
           <View style={styles.emptyState}>
             <View style={styles.emptyIcon}><Check size={28} color={colors.primary} strokeWidth={1.5} /></View>
-            <Text style={styles.emptyTitle}>You're all caught up</Text>
-            <Text style={styles.emptyDescription}>When your booking is approved or your visit changes, you'll find the update here.</Text>
+            <Text style={styles.emptyTitle}>{"You're all caught up"}</Text>
+            <Text style={styles.emptyDescription}>{"When your booking is approved or your visit changes, you'll find the update here."}</Text>
           </View>
         )}
         ListFooterComponent={query.hasNextPage ? <View style={styles.loadMore}><LoadMoreButton label="updates" loading={query.isFetchingNextPage} error={query.isFetchNextPageError} onLoadMore={() => { if (!query.isFetchingNextPage) void query.fetchNextPage() }} /></View> : notifications.length > 0 ? <Text style={styles.historyNote}>Updates are kept here for 30 days.</Text> : undefined}
@@ -251,7 +251,7 @@ const styles = StyleSheet.create({
   alertIntro: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
   alertIcon: { width: 40, height: 40, borderRadius: 14, backgroundColor: colors.primarySoft, justifyContent: "center", alignItems: "center" },
   alertTitle: { color: colors.ink, fontSize: 14, lineHeight: 20, fontWeight: "600" },
-  alertDescription: { marginTop: 4, color: colors.muted, fontSize: 12, lineHeight: 18 },
+  alertDescription: { marginTop: 4, color: colors.muted, fontSize: 13, lineHeight: 20 },
   alertError: { color: colors.warning, fontSize: 12, lineHeight: 18 },
   alertButton: { alignSelf: "flex-start", minHeight: 44, flexDirection: "row", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: 8, paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.sm, backgroundColor: colors.primarySoft },
   alertButtonText: { color: colors.primary, fontSize: 12, lineHeight: 18, fontWeight: "600" },
@@ -267,12 +267,12 @@ const styles = StyleSheet.create({
   notificationIcon: { width: 36, height: 36, borderRadius: 12, justifyContent: "center", alignItems: "center" },
   notificationCopy: { flex: 1, minWidth: 0 },
   notificationTitleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  notificationTitle: { flex: 1, color: colors.inkSoft, fontSize: 14, lineHeight: 21, fontWeight: "500" },
+  notificationTitle: { flex: 1, color: colors.inkSoft, fontSize: 15, lineHeight: 22, fontWeight: "500" },
   unreadTitle: { color: colors.ink, fontWeight: "600" },
   unreadDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.primary, flexShrink: 0 },
-  notificationBody: { marginTop: 5, color: colors.muted, fontSize: 12, lineHeight: 19 },
+  notificationBody: { marginTop: 5, color: colors.muted, fontSize: 14, lineHeight: 21 },
   notificationFooter: { marginTop: 12, flexDirection: "row", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", columnGap: 8, rowGap: 4 },
-  timestamp: { color: colors.subtle, fontSize: 10, lineHeight: 16 },
+  timestamp: { color: colors.muted, fontSize: 12, lineHeight: 18 },
   viewBooking: { color: colors.primary, fontSize: 10, lineHeight: 16, fontWeight: "600" },
   viewArrow: { fontSize: 12 },
   pressed: { opacity: 0.65 },

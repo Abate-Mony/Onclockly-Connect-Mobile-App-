@@ -4,6 +4,7 @@ import {
   saveAccessAndRefreshTokens,
 } from "./auth"
 import { notifyUnauthorized } from "./authEvents"
+import { getPushRegistration, type PushRegistration } from "./pushRegistration"
 
 if (!process.env.EXPO_PUBLIC_API_URL) {
   throw new Error("EXPO_PUBLIC_API_URL is not set. Configure it in the app's environment file.")
@@ -33,9 +34,11 @@ function sessionChanged(config?: SessionConfig) {
   return new CanceledError("The account session changed", config)
 }
 
-export async function revokeRefreshToken(refreshToken: string): Promise<void> {
+export async function revokeRefreshToken(refreshToken: string, clientPushRegistration?: PushRegistration | null): Promise<void> {
   // Bypass authenticated interceptors: logout must never refresh a session.
-  await axios.post(BASE_URL + "/client-auth/logout", { refreshToken }, { timeout: 5_000, withCredentials: false })
+  await axios.post(BASE_URL + "/client-auth/logout", {
+    refreshToken, ...(clientPushRegistration ? { clientPushRegistration } : {}),
+  }, { timeout: 5_000, withCredentials: false })
 }
 
 customFetch.interceptors.request.use(async original => {
@@ -60,6 +63,7 @@ function refreshAccessToken(version: number): Promise<string> {
 
   const operation = { version, promise: Promise.resolve("") }
   operation.promise = (async () => {
+    const pushRegistration = getPushRegistration(version)
     const refreshToken = await getRefreshToken()
     if (!isCurrentSession(version)) throw sessionChanged()
     if (!refreshToken) throw new MissingRefreshTokenError("No refresh token is available")
@@ -76,7 +80,7 @@ function refreshAccessToken(version: number): Promise<string> {
       return data.accessToken
     } catch (error) {
       if (!isCurrentSession(version)) {
-        try { await revokeRefreshToken(data.refreshToken) } catch { /* Local logout still takes effect offline. */ }
+        try { await revokeRefreshToken(data.refreshToken, pushRegistration) } catch { /* Local logout still takes effect offline. */ }
         throw sessionChanged()
       }
       throw error

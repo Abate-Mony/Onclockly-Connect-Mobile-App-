@@ -56,7 +56,8 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "test:styles": "node --test scripts/test-styled-pressable.cjs",
-    "test:session": "node --test scripts/test-session-storage.cjs scripts/test-session-cleanup.cjs"
+    "test:session": "node --test scripts/test-session-storage.cjs scripts/test-session-cleanup.cjs",
+    "test:notifications": "node --test scripts/test-notifications.cjs"
   },
   "private": true
 }

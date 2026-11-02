@@ -7,6 +7,7 @@ import {
 } from "../utils/auth"
 import { setUnauthorizedHandler } from "../utils/authEvents"
 import { revokeRefreshToken } from "../utils/customFetch"
+import { prepareClientPushLogout } from "../utils/clientPush"
 import type { ClientUser, PortalClient, PortalCompany } from "../utils/types"
 
 type AuthContextType = {
@@ -93,6 +94,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback((): Promise<void> => {
     if (logoutOperation.current?.version === getSessionVersion()) return logoutOperation.current.task
+    const pushCleanup = prepareClientPushLogout(user?._id).catch(() => null)
     const clearing = clearSession() // Invalidates in-flight work before any await.
     const operation = { version: getSessionVersion(), task: Promise.resolve() }
     setAccessToken(null)
@@ -115,7 +117,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       if (refreshToken) {
         try {
-          await revokeRefreshToken(refreshToken)
+          await revokeRefreshToken(refreshToken, await pushCleanup)
         } catch {
           if (getSessionVersion() === operation.version) {
             Toast.show({ type: "info", text1: "Signed out on this device", text2: "The server session couldn't be closed. Check your connection." })
@@ -127,7 +129,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })
     logoutOperation.current = operation
     return operation.task
-  }, [])
+  }, [user?._id])
 
   const updateUser = useCallback(async (patch: Partial<ClientUser>) => {
     if (!user) return

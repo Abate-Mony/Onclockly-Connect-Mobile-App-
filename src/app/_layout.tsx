@@ -45,6 +45,7 @@ function RootNavigator() {
   return (
     <ThemeProvider value={navigationTheme}>
       <QueryClientProvider client={queryClient}>
+        {authenticated && <NotificationRuntime />}
         <Stack screenOptions={{ contentStyle: { backgroundColor: colors.canvas } }}>
           <Stack.Protected guard={!authenticated}>
             <Stack.Screen name="login" options={{ headerShown: false }} />
@@ -72,7 +73,6 @@ export default function RootLayout() {
     <AuthProvider>
       <StatusBar style="dark" />
       <SplashScreenController />
-      <NotificationRuntime />
       <RootNavigator />
       <Toast />
     </AuthProvider>

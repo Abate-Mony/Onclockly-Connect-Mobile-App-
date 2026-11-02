@@ -37,6 +37,9 @@ for (const extension of [".ts", ".tsx"]) {
 
 Module._load = function (request, parent, isMain) {
   if (request === "expo-secure-store") return host.storage
+  if (request === "../utils/clientPush" && parent?.filename === providerFile) return {
+    prepareClientPushLogout: () => host.pushCleanup(),
+  }
   if (request === "react-native-toast-message") return { show: message => host.toasts.push(message) }
   if (request === "react" && parent?.filename === providerFile) return host.react
   return previousLoad.call(this, request, parent, isMain)
@@ -116,6 +119,7 @@ async function fixture(t, storageHooks = {}) {
   }
   host = {
     react, toasts,
+    pushCleanup: storageHooks.pushCleanup ?? (async () => null),
     storage: {
       getItemAsync: async key => {
         await storageHooks.get?.(key)
@@ -182,6 +186,20 @@ function assertAccountB(f) {
 }
 
 const options = { concurrency: false, timeout: 5_000 }
+
+test("local logout does not wait for push cleanup and revokes the exact device binding", options, async t => {
+  const gate = deferred()
+  const f = await fixture(t, { pushCleanup: () => gate.promise })
+  await f.login()
+  const operation = f.context().logout()
+  assertSignedOut(f)
+  await until(() => !f.values.has("refreshToken"))
+  assert.equal(f.rawCalls.length, 0)
+  const registration = { token: "ExponentPushToken[test-device]", registrationId: "registration-session-a" }
+  gate.resolve(registration)
+  await operation
+  assert.deepEqual(body(f.rawCalls[0]).clientPushRegistration, registration)
+})
 
 test("mobile login after local logout sends no bearer token or browser credentials", options, async t => {
   const f = await fixture(t)

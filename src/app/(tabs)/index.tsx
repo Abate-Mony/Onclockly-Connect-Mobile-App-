@@ -78,12 +78,12 @@ export default function DashboardScreen() {
           />
         }
       >
-        <View style={[styles.header, fontScale > 1.3 && styles.headerStack]}>
+        <View style={styles.header}>
           <StyledPressable
             accessibilityRole="button"
             accessibilityLabel="Open your profile"
             onPress={() => router.push("/profile")}
-            style={[styles.profileLink, fontScale > 1.3 && styles.profileLinkStack]}
+            style={styles.profileLink}
           >
             {({ pressed }) => (
               <View style={[styles.identity, pressed && styles.pressed]}>
