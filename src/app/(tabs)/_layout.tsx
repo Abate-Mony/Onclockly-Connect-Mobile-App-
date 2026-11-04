@@ -1,6 +1,6 @@
-import { Tabs } from "expo-router"
+import { router, Tabs } from "expo-router"
 import type { LucideIcon } from "lucide-react-native"
-import { FileText, Home, Receipt, User } from "lucide-react-native"
+import { CalendarDays, Home, Plus, Receipt, User } from "lucide-react-native"
 import { StyleSheet, View, useWindowDimensions } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { useAuth } from "../../context/AuthContext"
@@ -44,12 +44,37 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="quotes"
+        name="bookings"
         options={{
-          title: "Quotes",
-          href: canClient(user?.clientRole, "quote:read") ? undefined : null,
-          tabBarAccessibilityLabel: "Quotes",
-          tabBarIcon: ({ focused }) => <TabIcon Icon={FileText} focused={focused} />,
+          title: "Bookings",
+          href: canClient(user?.clientRole, "booking:read") ? undefined : null,
+          tabBarAccessibilityLabel: "Bookings",
+          tabBarIcon: ({ focused }) => <TabIcon Icon={CalendarDays} focused={focused} />,
+        }}
+      />
+      <Tabs.Screen
+        name="new-booking"
+        listeners={{
+          tabPress: event => {
+            event.preventDefault()
+            if (canClient(user?.clientRole, "booking:create")) router.push("/request-booking")
+          },
+        }}
+        options={{
+          title: "",
+          tabBarShowLabel: false,
+          tabBarLabel: () => null,
+          tabBarAccessibilityLabel: "Request a booking",
+          href: canClient(user?.clientRole, "booking:create")
+            ? undefined
+            : null,
+          tabBarItemStyle: { paddingBottom: 0 },
+          tabBarIconStyle: { width: 48, height: 48, marginTop: -25, marginBottom: 0 },
+          tabBarIcon: () => (
+            <View style={styles.addButton}>
+              <Plus size={26} color={colors.white} strokeWidth={2} />
+            </View>
+          ),
         }}
       />
       <Tabs.Screen
@@ -69,6 +94,7 @@ export default function TabLayout() {
           tabBarIcon: ({ focused }) => <TabIcon Icon={User} focused={focused} />,
         }}
       />
+      <Tabs.Screen name="quotes" options={{ title: "Quotes", href: null }} />
     </Tabs>
   )
 }
@@ -94,4 +120,12 @@ const styles = StyleSheet.create({
   },
   activeIcon: { backgroundColor: colors.primarySoft },
   label: { fontSize: 11, fontWeight: "600", lineHeight: 16 },
+  addButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
 })

@@ -1,22 +1,26 @@
 import { useState } from "react"
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import dayjs from "dayjs"
-import { router } from "expo-router"
-import { AlertCircle, ArrowLeft, CalendarDays, ChevronRight, Plus } from "lucide-react-native"
-import { FlatList, RefreshControl, StyleSheet, Text, View } from "react-native"
-import { StyledPressable as Pressable } from "../components/StyledPressable"
+import { Redirect, router } from "expo-router"
+import { AlertCircle, CalendarDays, ChevronRight, List, Plus } from "lucide-react-native"
+import { FlatList, RefreshControl, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native"
+import { StyledPressable as Pressable } from "../../components/StyledPressable"
 import { SafeAreaView } from "react-native-safe-area-context"
 import Toast from "react-native-toast-message"
-import { SearchAndFilters } from "../components/SearchAndFilters"
-import type { FilterOption } from "../components/SearchAndFilters"
-import { LoadMoreButton, LoadingSkeleton, RetryNotice, RetryState } from "../components/QueryStates"
-import { pressableFeedback } from "../components/interactiveStyles"
-import { StatusBadge } from "../components/StatusBadge"
-import { useAuth } from "../context/AuthContext"
-import { colors, radius, shadow, spacing } from "../utils/theme"
-import { canClient } from "../utils/clientPermissions"
-import customFetch from "../utils/customFetch"
-import type { BookingRequestsResponse, BookingsResponse, PortalBooking, PortalBookingRequest } from "../utils/types"
+import { SearchAndFilters } from "../../components/SearchAndFilters"
+import { BookingCalendarView } from "../../components/bookings/BookingCalendarView"
+import type { FilterOption } from "../../components/SearchAndFilters"
+import { LoadMoreButton, LoadingSkeleton, RetryNotice, RetryState } from "../../components/QueryStates"
+import { pressableFeedback } from "../../components/interactiveStyles"
+import { StatusBadge } from "../../components/StatusBadge"
+import { useAuth } from "../../context/AuthContext"
+import { useTabBarClearance } from "../../hooks/useTabBarClearance"
+import { colors, radius, shadow, spacing } from "../../utils/theme"
+import { canClient } from "../../utils/clientPermissions"
+import customFetch from "../../utils/customFetch"
+import { bookingDayKey, dateFromDayKey, serviceTodayKey } from "../../utils/bookingCalendar"
+import { startOfCalendarMonth } from "../../utils/dateTimePicker"
+import type { BookingRequestsResponse, BookingsResponse, PortalBooking, PortalBookingRequest } from "../../utils/types"
 
 type BookingFilter = "all" | "upcoming" | "past" | "completed" | "cancelled"
 
@@ -69,7 +73,7 @@ function YourRequests() {
               <StatusBadge status={r.status} />
             </View>
             <Text style={styles.requestMeta}>
-              Preferred {dayjs(r.preferredDate).format("D MMM YYYY")}{r.preferredTime ? ` · ${r.preferredTime}` : ""}
+              Preferred {bookingDayKey(r.preferredDate) ? dayjs(dateFromDayKey(r.preferredDate.slice(0, 10))).format("D MMM YYYY") : "date unavailable"}{r.preferredTime ? ` · ${r.preferredTime}` : ""}
             </Text>
             {r.status === "declined" && !!r.reviewNotes && <Text style={styles.requestMeta}>{r.reviewNotes}</Text>}
           </View>
@@ -90,17 +94,19 @@ function YourRequests() {
 }
 
 function BookingRow({ booking }: { booking: PortalBooking }) {
+  const key = bookingDayKey(booking.date)
+  const date = key ? dateFromDayKey(key) : null
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${booking.title}, ${dayjs(booking.date).format("D MMM YYYY")}, ${booking.status}, ${booking.location}`}
+      accessibilityLabel={`${booking.title}, ${date ? dayjs(date).format("D MMM YYYY") : "Date unavailable"}, ${booking.status}, ${booking.location}`}
       onPress={() => router.push({ pathname: "/booking/[id]", params: { id: booking._id } })}
       style={({ pressed }) => [styles.card, shadow.md, pressableFeedback(pressed)]}
     >
       <View style={styles.cardTopRow}>
         <View style={styles.dateChip}>
-          <Text style={styles.dateChipMonth}>{dayjs(booking.date).format("MMM").toUpperCase()}</Text>
-          <Text style={styles.dateChipDay}>{dayjs(booking.date).format("D")}</Text>
+          <Text style={styles.dateChipMonth}>{date ? dayjs(date).format("MMM").toUpperCase() : "—"}</Text>
+          <Text style={styles.dateChipDay}>{date ? date.getDate() : "—"}</Text>
         </View>
         <View style={styles.flex1}>
           <View style={styles.cardTitleRow}>
@@ -116,14 +122,22 @@ function BookingRow({ booking }: { booking: PortalBooking }) {
 }
 
 export default function BookingsScreen() {
+  const [view, setView] = useState<"calendar" | "list">("calendar")
+  const [calendarMonth, setCalendarMonth] = useState(() => startOfCalendarMonth(dateFromDayKey(serviceTodayKey())))
+  const [calendarSelectedDate, setCalendarSelectedDate] = useState<string | null>(null)
   const [search, setSearch] = useState("")
   const [filter, setFilter] = useState<BookingFilter>("all")
   const { user } = useAuth()
+  const { fontScale, width } = useWindowDimensions()
+  const stackedHeader = fontScale > 1.3 || width < 360
+  const canRead = canClient(user?.clientRole, "booking:read")
+  const bottomPadding = useTabBarClearance(28)
   const { data, isLoading, isError, refetch, isRefetching, hasNextPage, fetchNextPage, isFetchingNextPage, isFetchNextPageError } = useInfiniteQuery({
-    queryKey: ["portal-bookings"],
+    queryKey: ["portal-bookings", "list", user?._id],
+    enabled: canRead && view === "list",
     initialPageParam: 1,
-    queryFn: async ({ pageParam }) => {
-      const { data } = await customFetch.get<BookingsResponse>("/portal/bookings", { params: { page: pageParam } })
+    queryFn: async ({ pageParam, signal }) => {
+      const { data } = await customFetch.get<BookingsResponse>("/portal/bookings", { params: { page: pageParam }, signal })
       return data
     },
     getNextPageParam: lastPage => lastPage.currentPage < lastPage.totalPages
@@ -133,10 +147,13 @@ export default function BookingsScreen() {
   const bookings = data?.pages.flatMap(page => page.bookings) ?? []
   const canRequest = canClient(user?.clientRole, "booking:create")
   const normalizedSearch = search.trim().toLowerCase()
+  const today = serviceTodayKey()
   const filteredBookings = bookings.filter(booking => {
+    const key = bookingDayKey(booking.date)
+    const date = key ? dateFromDayKey(key) : null
     const isUpcoming = (booking.status === "draft" || booking.status === "published")
-      && !dayjs(booking.date).isBefore(dayjs(), "day")
-    const isPast = dayjs(booking.date).isBefore(dayjs(), "day") && booking.status !== "cancelled"
+      && key !== null && key >= today
+    const isPast = key !== null && key < today && booking.status !== "cancelled"
     const matchesFilter = filter === "all"
       || (filter === "upcoming" && isUpcoming)
       || (filter === "past" && isPast)
@@ -147,55 +164,86 @@ export default function BookingsScreen() {
       booking.location,
       booking.address,
       booking.status,
-      dayjs(booking.date).format("D MMM YYYY"),
-      dayjs(booking.date).format("MMMM"),
+      date ? dayjs(date).format("D MMM YYYY") : "",
+      date ? dayjs(date).format("MMMM") : "",
     ].filter(Boolean).join(" ").toLowerCase()
     return matchesFilter && searchableText.includes(normalizedSearch)
   })
 
-  return (
-    <SafeAreaView style={styles.screen} edges={["top"]}>
-      <View style={styles.topBar}>
-        <Pressable
-          onPress={() => router.back()}
-          style={({ pressed }) => [styles.backBtn, pressableFeedback(pressed)]}
-        >
-          <ArrowLeft size={18} color={colors.ink} />
-          <Text style={styles.backText}>Home</Text>
-        </Pressable>
-      </View>
-      <View style={styles.header}>
-        <View style={styles.headerRow}>
-          <View style={styles.flex1}>
-            <Text style={styles.eyebrow}>YOUR SERVICES</Text>
-            <Text style={styles.title}>Bookings</Text>
-            <Text style={styles.subtitle}>Your upcoming and past visits, all in one place.</Text>
-          </View>
-          {canRequest && (
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => router.push("/request-booking")}
-              style={({ pressed }) => [styles.requestBtn, shadow.md, pressableFeedback(pressed)]}
-            >
-              <Plus size={15} color={colors.white} />
-              <Text style={styles.requestBtnText}>Request</Text>
-            </Pressable>
-          )}
-        </View>
-      </View>
+  if (!canRead) return <Redirect href="/" />
 
-      {isLoading ? (
-        <LoadingSkeleton rows={3} showFilters />
+  const header = (
+    <View style={styles.header}>
+      <View style={[styles.headerRow, stackedHeader && styles.headerRowStacked]}>
+        <View style={[styles.flex1, stackedHeader && styles.stackedHeaderCopy]}>
+          <Text style={styles.title}>Bookings</Text>
+          <Text style={styles.subtitle}>Every visit, past and upcoming.</Text>
+        </View>
+        {canRequest && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Request a booking"
+            onPress={() => router.push("/request-booking")}
+            style={({ pressed }) => [styles.requestBtn, shadow.md, pressableFeedback(pressed)]}
+          >
+            <Plus size={15} color={colors.white} />
+            <Text style={styles.requestBtnText}>Request</Text>
+          </Pressable>
+        )}
+      </View>
+      <View style={styles.viewSwitch}>
+        {(["calendar", "list"] as const).map(mode => {
+          const selected = view === mode
+          const Icon = mode === "calendar" ? CalendarDays : List
+          return (
+            <Pressable
+              key={mode}
+              accessibilityRole="button"
+              accessibilityLabel={`${mode === "calendar" ? "Calendar" : "List"} view`}
+              accessibilityState={{ selected }}
+              onPress={() => setView(mode)}
+              style={({ pressed }) => [styles.viewButton, selected && styles.viewButtonSelected, pressableFeedback(pressed)]}
+            >
+              {fontScale <= 1.4 && <Icon size={17} strokeWidth={1.8} color={selected ? colors.primary : colors.muted} />}
+              <Text style={[styles.viewButtonText, selected && styles.viewButtonTextSelected]}>{mode === "calendar" ? "Calendar" : "List"}</Text>
+            </Pressable>
+          )
+        })}
+      </View>
+    </View>
+  )
+
+  return (
+    <SafeAreaView style={styles.screen} edges={["top", "left", "right"]}>
+      {view === "calendar" ? (
+        <BookingCalendarView
+          user={user}
+          header={header}
+          month={calendarMonth}
+          selectedDate={calendarSelectedDate}
+          onMonthChange={setCalendarMonth}
+          onSelectDate={setCalendarSelectedDate}
+          requests={canRequest ? <YourRequests /> : undefined}
+        />
+      ) : isLoading ? (
+        <ScrollView style={styles.flex1}>
+          {header}
+          <LoadingSkeleton rows={3} showFilters />
+        </ScrollView>
       ) : isError && !data ? (
-        <RetryState title="Couldn’t load your bookings" message="Check your connection and try again." onRetry={() => { refetch() }} />
+        <ScrollView style={styles.flex1}>
+          {header}
+          <RetryState title="Couldn’t load your bookings" message="Check your connection and try again." onRetry={() => { refetch() }} />
+        </ScrollView>
       ) : (
         <FlatList
           data={filteredBookings}
           keyExtractor={b => b._id}
           renderItem={({ item }) => <BookingRow booking={item} />}
-          contentContainerStyle={styles.list}
+          contentContainerStyle={[styles.list, { paddingBottom: bottomPadding }]}
           ListHeaderComponent={
             <View style={styles.listHeader}>
+              <View style={styles.listScreenHeader}>{header}</View>
               {isError && !isFetchNextPageError && <RetryNotice onRetry={() => { refetch() }} />}
               <SearchAndFilters
                 label="Search bookings"
@@ -261,17 +309,20 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.canvas },
   flex1: { flex: 1, minWidth: 0 },
 
-  topBar: { paddingHorizontal: 12, paddingTop: 4 },
-  backBtn: { flexDirection: "row", alignItems: "center", gap: 6, minHeight: 44, paddingVertical: 8, paddingHorizontal: 4, alignSelf: "flex-start" },
-  backText: { fontSize: 14, fontWeight: "700", color: colors.ink },
-
-  header: { paddingHorizontal: spacing.xl, paddingTop: 4, paddingBottom: spacing.lg },
+  header: { paddingHorizontal: spacing.xl, paddingTop: spacing.md, paddingBottom: spacing.md },
   headerRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
-  eyebrow: { color: colors.subtle, fontSize: 10, fontWeight: "800", letterSpacing: 1.1 },
-  title: { marginTop: 5, fontSize: 30, fontWeight: "800", color: colors.ink, letterSpacing: -0.5 },
+  headerRowStacked: { flexDirection: "column", alignItems: "stretch" },
+  stackedHeaderCopy: { flexGrow: 0, flexShrink: 0, flexBasis: "auto" },
+  title: { fontSize: 28, lineHeight: 35, fontWeight: "700", color: colors.ink, letterSpacing: -0.6 },
   subtitle: { marginTop: 5, color: colors.muted, fontSize: 13, lineHeight: 19 },
+  viewSwitch: { flexDirection: "row", padding: 4, borderRadius: radius.md, backgroundColor: colors.surfaceAlt, marginTop: spacing.lg },
+  viewButton: { flex: 1, minHeight: 44, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, borderRadius: radius.sm },
+  viewButtonSelected: { backgroundColor: colors.surface },
+  viewButtonText: { flexShrink: 1, color: colors.muted, fontSize: 13, lineHeight: 20, fontWeight: "500", textAlign: "center" },
+  viewButtonTextSelected: { color: colors.primary, fontWeight: "600" },
 
   requestBtn: {
+    alignSelf: "flex-start",
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
@@ -283,8 +334,9 @@ const styles = StyleSheet.create({
   },
   requestBtnText: { fontSize: 12, fontWeight: "700", color: colors.white },
 
-  list: { paddingHorizontal: spacing.xl, paddingBottom: 28, gap: spacing.md, flexGrow: 1 },
+  list: { paddingHorizontal: spacing.xl, gap: spacing.md, flexGrow: 1 },
   listHeader: { gap: spacing.lg, marginBottom: 3 },
+  listScreenHeader: { marginHorizontal: -spacing.xl, marginBottom: -spacing.lg },
 
   sectionLabel: { fontSize: 11, fontWeight: "800", color: colors.subtle, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 },
   requestsBlock: { marginTop: 1, marginBottom: 2, gap: 8 },

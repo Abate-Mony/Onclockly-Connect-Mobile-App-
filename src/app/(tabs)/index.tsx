@@ -107,11 +107,7 @@ export default function DashboardScreen() {
             stacked={fontScale > 1.25}
           />
         )}
-        <View style={{ height: 8 }} >
-          <Text style={{ color: colors.muted, fontSize: 12, lineHeight: 18, textAlign: "center" }}>
-            {`Last updated ${now.format("h:mm A")}`}
-          </Text>
-        </View>
+ 
         <QuickActions canReadBookings={canReadBookings} canRequest={canRequest} />
       </ScrollView>
     </SafeAreaView>

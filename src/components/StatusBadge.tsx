@@ -49,7 +49,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     alignSelf: "flex-start",
+    maxWidth: "100%",
+    flexShrink: 1,
   },
-  dot: { width: 6, height: 6, borderRadius: 3 },
-  text: { fontSize: 11, fontWeight: "700" },
+  dot: { width: 6, height: 6, borderRadius: 3, flexShrink: 0 },
+  text: { fontSize: 11, fontWeight: "700", flexShrink: 1 },
 })

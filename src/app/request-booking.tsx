@@ -1,86 +1,47 @@
-import DateTimePicker from "@react-native-community/datetimepicker"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import dayjs from "dayjs"
-import { router } from "expo-router"
-import { CalendarDays, Clock, Info, X } from "lucide-react-native"
+import { Redirect, router, useLocalSearchParams } from "expo-router"
+import { ArrowLeft, Info } from "lucide-react-native"
 import { useState } from "react"
-import { Platform, ScrollView, StyleSheet, Text, TextInput, View } from "react-native"
+import { Keyboard, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import Toast from "react-native-toast-message"
+import { DateTimePickerField, DateTimePickerSheet } from "../components/DateTimePicker"
 import { pressableFeedback } from "../components/interactiveStyles"
 import { StyledPressable as Pressable } from "../components/StyledPressable"
+import { useAuth } from "../context/AuthContext"
+import { canClient } from "../utils/clientPermissions"
 import customFetch from "../utils/customFetch"
+import { calendarDateKey, isCalendarDayBefore } from "../utils/dateTimePicker"
 import { colors, radius, shadow, spacing } from "../utils/theme"
 import type { CreateBookingRequestInput, PortalBookingRequest } from "../utils/types"
 
-function DateField({ value, onChange }: { value: Date; onChange: (date: Date) => void }) {
-  const [open, setOpen] = useState(false)
-
-  return (
-    <View style={styles.fieldHalf}>
-      <Text style={styles.label}>Preferred date</Text>
-      <Pressable style={({ pressed }) => [styles.input, pressableFeedback(pressed)]} onPress={() => setOpen(true)}>
-        <CalendarDays size={14} color={colors.muted} />
-        <Text style={styles.inputValue}>{dayjs(value).format("D MMM YYYY")}</Text>
-      </Pressable>
-
-      {open && (
-        <DateTimePicker
-          value={value}
-          mode="date"
-          minimumDate={new Date()}
-          display={Platform.OS === "ios" ? "inline" : "default"}
-          onChange={(event, selected) => {
-            if (Platform.OS === "android") setOpen(false)
-            if (event.type === "set" && selected) onChange(selected)
-          }}
-        />
-      )}
-    </View>
-  )
-}
-
-function TimeField({ value, onChange }: { value: Date | null; onChange: (date: Date) => void }) {
-  const [open, setOpen] = useState(false)
-
-  return (
-    <View style={styles.fieldHalf}>
-      <Text style={styles.label}>Preferred time (optional)</Text>
-      <Pressable style={({ pressed }) => [styles.input, pressableFeedback(pressed)]} onPress={() => setOpen(true)}>
-        <Clock size={14} color={colors.muted} />
-        <Text style={styles.inputValue}>{value ? dayjs(value).format("HH:mm") : "Any time"}</Text>
-      </Pressable>
-
-      {open && (
-        <DateTimePicker
-          value={value ?? dayjs().hour(9).minute(0).toDate()}
-          mode="time"
-          is24Hour
-          minuteInterval={15}
-          display={Platform.OS === "ios" ? "spinner" : "default"}
-          onChange={(event, selected) => {
-            if (Platform.OS === "android") setOpen(false)
-            if (event.type === "set" && selected) onChange(selected)
-          }}
-        />
-      )}
-    </View>
-  )
-}
-
 export default function RequestBookingScreen() {
   const qc = useQueryClient()
-  const [service, setService] = useState("")
+  const { user } = useAuth()
+  const { service: prefillService } = useLocalSearchParams<{ service?: string }>()
+  const [service, setService] = useState(prefillService ?? "")
   const [preferredDate, setPreferredDate] = useState(dayjs().add(1, "day").toDate())
-  const [preferredTime, setPreferredTime] = useState<Date | null>(null)
+  const [preferredTime, setPreferredTime] = useState<string | null>(null)
+  const [picker, setPicker] = useState<"date" | "time" | null>(null)
   const [notes, setNotes] = useState("")
+
+  function leaveScreen() {
+    if (router.canGoBack()) router.back()
+    else router.replace("/bookings")
+  }
+
+  function openPicker(mode: "date" | "time") {
+    Keyboard.dismiss()
+    setPicker(mode)
+  }
 
   const mutation = useMutation({
     mutationFn: async () => {
       const input: CreateBookingRequestInput = {
         service: service.trim(),
-        preferredDate: dayjs(preferredDate).format("YYYY-MM-DD"),
-        preferredTime: preferredTime ? dayjs(preferredTime).format("HH:mm") : undefined,
+        preferredDate: calendarDateKey(preferredDate),
+        preferredTime: preferredTime ?? undefined,
         notes: notes.trim() || undefined,
       }
       const { data } = await customFetch.post<{ request: PortalBookingRequest }>("/portal/bookings/requests", input)
@@ -89,84 +50,135 @@ export default function RequestBookingScreen() {
     onSuccess: () => {
       Toast.show({ type: "success", text1: "Request sent", text2: "We'll be in touch to confirm the details." })
       qc.invalidateQueries({ queryKey: ["portal-booking-requests"] })
-      router.back()
+      leaveScreen()
     },
     onError: (err: any) => Toast.show({ type: "error", text1: "Couldn't send your request", text2: err?.response?.data?.msg }),
   })
 
-  const canSubmit = service.trim().length > 0 && !mutation.isPending
+  const dateIsPast = isCalendarDayBefore(preferredDate, new Date())
+  const canSubmit = service.trim().length > 0 && !dateIsPast && !mutation.isPending
+
+  if (!canClient(user?.clientRole, "booking:create")) return <Redirect href="/" />
 
   return (
     <SafeAreaView style={styles.screen} edges={["top", "bottom"]}>
-      <View style={styles.topBar}>
-        <Text style={styles.title}>Request a booking</Text>
-        <Pressable onPress={() => router.back()} style={({ pressed }) => [styles.closeBtn, pressableFeedback(pressed)]}>
-          <X size={18} color={colors.muted} />
-        </Pressable>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <Text style={styles.label}>What do you need?</Text>
-        <TextInput
-          style={styles.textInput}
-          placeholder="e.g. Office cleaning"
-          placeholderTextColor={colors.subtle}
-          value={service}
-          onChangeText={setService}
-        />
-
-        <View style={styles.row}>
-          <DateField value={preferredDate} onChange={setPreferredDate} />
-          <TimeField value={preferredTime} onChange={setPreferredTime} />
+      <KeyboardAvoidingView style={styles.flex1} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+        <View style={styles.topBar}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+            onPress={leaveScreen}
+            style={({ pressed }) => [styles.backButton, pressableFeedback(pressed)]}
+          >
+            <ArrowLeft size={20} color={colors.ink} />
+          </Pressable>
+          <Text style={styles.title}>Request a booking</Text>
         </View>
 
-        <Text style={styles.label}>Notes (optional)</Text>
-        <TextInput
-          style={[styles.textInput, styles.textArea]}
-          placeholder="Anything else that would help us plan this"
-          placeholderTextColor={colors.subtle}
-          value={notes}
-          onChangeText={setNotes}
-          multiline
-          numberOfLines={4}
-        />
+        <ScrollView style={styles.flex1} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+          <Text style={styles.label}>What do you need?</Text>
+          <TextInput
+            accessibilityLabel="What do you need?"
+            style={styles.textInput}
+            placeholder="e.g. Office cleaning"
+            placeholderTextColor={colors.subtle}
+            value={service}
+            onChangeText={setService}
+          />
 
-        <View style={styles.infoBox}>
-          <Info size={15} color={colors.info} />
-          <Text style={styles.infoText}>This sends a request, not a confirmed booking — our team will review it and reach out to confirm the details.</Text>
+          <View style={styles.scheduleSection}>
+            <Text style={styles.sectionTitle}>Your preferred visit</Text>
+            <Text style={styles.sectionDescription}>Choose a day and a time that work for you.</Text>
+            <DateTimePickerField kind="date" label="Preferred date" value={dayjs(preferredDate).format("ddd, D MMM YYYY")} onPress={() => openPicker("date")} disabled={mutation.isPending} />
+            <DateTimePickerField kind="time" label="Preferred time · optional" value={preferredTime ?? "Any time"} onPress={() => openPicker("time")} disabled={mutation.isPending} />
+            {dateIsPast && <Text accessibilityRole="alert" style={styles.dateError}>Choose today or a future date.</Text>}
+          </View>
+
+          <Text style={styles.label}>Notes (optional)</Text>
+          <TextInput
+            accessibilityLabel="Booking notes, optional"
+            style={[styles.textInput, styles.textArea]}
+            placeholder="Anything else that would help us plan this"
+            placeholderTextColor={colors.subtle}
+            value={notes}
+            onChangeText={setNotes}
+            multiline
+            numberOfLines={4}
+          />
+
+          <View style={styles.infoBox}>
+            <Info size={15} color={colors.info} />
+            <Text style={styles.infoText}>This sends a request, not a confirmed booking — our team will review it and reach out to confirm the details.</Text>
+          </View>
+        </ScrollView>
+
+        <View style={styles.footer}>
+          <Pressable accessibilityRole="button" style={({ pressed }) => [styles.cancelBtn, pressableFeedback(pressed)]} onPress={leaveScreen}>
+            <Text style={styles.cancelText}>Cancel</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !canSubmit, busy: mutation.isPending }}
+            style={({ pressed }) => [styles.submitBtn, shadow.md, !canSubmit && styles.submitBtnDisabled, pressed && canSubmit && styles.submitBtnPressed]}
+            onPress={() => mutation.mutate()}
+            disabled={!canSubmit}
+          >
+            <Text style={styles.submitText}>{mutation.isPending ? "Sending…" : "Send request"}</Text>
+          </Pressable>
         </View>
-      </ScrollView>
-
-      <View style={styles.footer}>
-        <Pressable style={({ pressed }) => [styles.cancelBtn, pressableFeedback(pressed)]} onPress={() => router.back()}>
-          <Text style={styles.cancelText}>Cancel</Text>
-        </Pressable>
-        <Pressable
-          style={({ pressed }) => [styles.submitBtn, shadow.md, !canSubmit && styles.submitBtnDisabled, pressed && canSubmit && styles.submitBtnPressed]}
-          onPress={() => mutation.mutate()}
-          disabled={!canSubmit}
-        >
-          <Text style={styles.submitText}>{mutation.isPending ? "Sending…" : "Send request"}</Text>
-        </Pressable>
-      </View>
+      </KeyboardAvoidingView>
+      {picker && (
+        <Modal visible transparent animationType="fade" onRequestClose={() => setPicker(null)}>
+          <View style={styles.pickerOverlay}>
+            <Pressable accessible={false} style={StyleSheet.absoluteFill} onPress={() => setPicker(null)} />
+            {picker === "date" ? (
+              <DateTimePickerSheet
+                mode="date"
+                title="Choose a date"
+                value={preferredDate}
+                minimumDate={new Date()}
+                onCancel={() => setPicker(null)}
+                onConfirm={date => {
+                  setPreferredDate(date)
+                  setPicker(null)
+                }}
+              />
+            ) : (
+              <DateTimePickerSheet
+                mode="time"
+                title="Choose a time"
+                value={preferredTime}
+                allowAnyTime
+                onCancel={() => setPicker(null)}
+                onConfirm={time => {
+                  setPreferredTime(time)
+                  setPicker(null)
+                }}
+              />
+            )}
+          </View>
+        </Modal>
+      )}
     </SafeAreaView>
   )
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.surface },
+  flex1: { flex: 1 },
+  pickerOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(16,47,40,0.4)" },
 
   topBar: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg + 10,
+    gap: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  title: { fontSize: 17, fontWeight: "800", color: colors.ink },
-  closeBtn: { padding: 4 },
+  title: { flex: 1, fontSize: 17, fontWeight: "800", color: colors.ink },
+  backButton: { minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" },
 
   content: { padding: spacing.lg, gap: 4 },
 
@@ -183,20 +195,10 @@ const styles = StyleSheet.create({
   },
   textArea: { minHeight: 90, textAlignVertical: "top" },
 
-  row: { flexDirection: "row", gap: spacing.md },
-  fieldHalf: { flex: 1 },
-  input: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    backgroundColor: colors.canvas,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 12,
-  },
-  inputValue: { fontSize: 13, fontWeight: "600", color: colors.ink },
+  scheduleSection: { marginTop: spacing.xxl, gap: spacing.md },
+  sectionTitle: { color: colors.ink, fontSize: 16, lineHeight: 22, fontWeight: "600" },
+  sectionDescription: { color: colors.muted, fontSize: 13, lineHeight: 20, marginTop: -6, marginBottom: 4 },
+  dateError: { color: colors.danger, fontSize: 13, lineHeight: 20 },
 
   infoBox: {
     flexDirection: "row",

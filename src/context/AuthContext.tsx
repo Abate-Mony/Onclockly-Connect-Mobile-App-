@@ -7,7 +7,8 @@ import {
 } from "../utils/auth"
 import { setUnauthorizedHandler } from "../utils/authEvents"
 import { revokeRefreshToken } from "../utils/customFetch"
-import { prepareClientPushLogout } from "../utils/clientPush"
+import { getClientPushStatus, prepareClientPushLogout } from "../utils/clientPush"
+import { hasCompletedNotificationOnboarding, markNotificationOnboardingComplete } from "../utils/notificationOnboarding"
 import type { ClientUser, PortalClient, PortalCompany } from "../utils/types"
 
 type AuthContextType = {
@@ -16,6 +17,8 @@ type AuthContextType = {
   company: PortalCompany | null
   accessToken: string | null
   loading: boolean
+  needsNotificationOnboarding: boolean
+  completeNotificationOnboarding: () => void
   login: (accessToken: string, refreshToken: string, user: ClientUser, client: PortalClient, company: PortalCompany | null) => Promise<void>
   logout: () => Promise<void>
   updateUser: (patch: Partial<ClientUser>) => Promise<void>
@@ -36,7 +39,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [company, setCompany] = useState<PortalCompany | null>(null)
   const [accessToken, setAccessToken] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [needsNotificationOnboarding, setNeedsNotificationOnboarding] = useState(false)
   const logoutOperation = useRef<{ version: number; task: Promise<void> } | null>(null)
+
+  const evaluateNotificationOnboarding = useCallback(async (version: number) => {
+    try {
+      const [completed, status] = await Promise.all([hasCompletedNotificationOnboarding(), getClientPushStatus()])
+      if (isCurrentSession(version)) setNeedsNotificationOnboarding(!completed && status === "undetermined")
+    } catch {
+      if (isCurrentSession(version)) setNeedsNotificationOnboarding(false)
+    }
+  }, [])
+
+  const completeNotificationOnboarding = useCallback(() => {
+    setNeedsNotificationOnboarding(false)
+    void markNotificationOnboardingComplete()
+  }, [])
 
   useEffect(() => {
     let mounted = true
@@ -49,6 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (token && storedUser) {
             setAccessToken(token)
             setUser(storedUser)
+            void evaluateNotificationOnboarding(version)
           } else {
             await clearSession()
           }
@@ -61,7 +80,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     void restoreSession()
     return () => { mounted = false }
-  }, [])
+  }, [evaluateNotificationOnboarding])
 
   const login = useCallback(async (
     token: string, refreshToken: string, nextUser: ClientUser,
@@ -82,6 +101,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setClient(nextClient)
       setCompany(nextCompany)
       setAccessToken(token)
+      void evaluateNotificationOnboarding(version)
     } catch (error) {
       // A token issued by login still needs retiring if persistence failed
       // or the user closed that session before it could finish opening.
@@ -90,7 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (isCurrentSession(version)) await clearSession().catch(() => undefined)
       throw error
     }
-  }, [])
+  }, [evaluateNotificationOnboarding])
 
   const logout = useCallback((): Promise<void> => {
     if (logoutOperation.current?.version === getSessionVersion()) return logoutOperation.current.task
@@ -101,6 +121,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null)
     setClient(null)
     setCompany(null)
+    setNeedsNotificationOnboarding(false)
     clearAccountCache()
 
     operation.task = (async () => {
@@ -150,7 +171,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [logout])
 
   return (
-    <AuthContext.Provider value={{ user, client, company, accessToken, loading, login, logout, updateUser }}>
+    <AuthContext.Provider value={{
+      user, client, company, accessToken, loading,
+      needsNotificationOnboarding, completeNotificationOnboarding,
+      login, logout, updateUser,
+    }}>
       {children}
     </AuthContext.Provider>
   )

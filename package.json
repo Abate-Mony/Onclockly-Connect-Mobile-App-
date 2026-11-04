@@ -56,6 +56,8 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "test:styles": "node --test scripts/test-styled-pressable.cjs",
+    "test:date-time": "node --test scripts/test-date-time-picker.cjs",
+    "test:booking-calendar": "node --test scripts/test-booking-calendar.cjs",
     "test:session": "node --test scripts/test-session-storage.cjs scripts/test-session-cleanup.cjs",
     "test:notifications": "node --test scripts/test-notifications.cjs"
   },

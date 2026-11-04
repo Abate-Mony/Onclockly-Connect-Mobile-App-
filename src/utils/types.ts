@@ -140,6 +140,13 @@ export interface PortalBooking {
   chargeAmount?: number
   billingStatus?: "not_billable" | "pending" | "ready" | "invoiced"
   invoice: string | null
+  clientRating?: number | null
+  clientReviewComment?: string | null
+}
+
+export interface SubmitBookingReviewInput {
+  rating: number
+  comment?: string
 }
 
 // ── Sites ─────────────────────────────────────────────────────────────────

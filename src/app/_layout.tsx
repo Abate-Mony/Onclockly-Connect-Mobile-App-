@@ -35,7 +35,7 @@ function SplashScreenController() {
 }
 
 function RootNavigator() {
-  const { accessToken, loading } = useAuth()
+  const { accessToken, loading, needsNotificationOnboarding } = useAuth()
   const authenticated = !!accessToken
 
   if (loading) {
@@ -51,16 +51,20 @@ function RootNavigator() {
             <Stack.Screen name="login" options={{ headerShown: false }} />
           </Stack.Protected>
           <Stack.Protected guard={authenticated}>
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="notifications" options={{ headerShown: false }} />
-            <Stack.Screen name="quote/[id]" options={{ headerShown: false }} />
-            <Stack.Screen name="invoice/[id]" options={{ headerShown: false }} />
-            <Stack.Screen name="bookings" options={{ headerShown: false }} />
-            <Stack.Screen name="booking/[id]" options={{ headerShown: false }} />
-            <Stack.Screen name="sites" options={{ headerShown: false }} />
-            <Stack.Screen name="site/[id]" options={{ headerShown: false }} />
-            <Stack.Screen name="documents" options={{ headerShown: false }} />
-            <Stack.Screen name="request-booking" options={{ headerShown: false, presentation: "modal" }} />
+            <Stack.Protected guard={needsNotificationOnboarding}>
+              <Stack.Screen name="notification-onboarding" options={{ headerShown: false, gestureEnabled: false }} />
+            </Stack.Protected>
+            <Stack.Protected guard={!needsNotificationOnboarding}>
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen name="notifications" options={{ headerShown: false }} />
+              <Stack.Screen name="quote/[id]" options={{ headerShown: false }} />
+              <Stack.Screen name="invoice/[id]" options={{ headerShown: false }} />
+              <Stack.Screen name="booking/[id]" options={{ headerShown: false }} />
+              <Stack.Screen name="sites" options={{ headerShown: false }} />
+              <Stack.Screen name="site/[id]" options={{ headerShown: false }} />
+              <Stack.Screen name="documents" options={{ headerShown: false }} />
+              <Stack.Screen name="request-booking" options={{ headerShown: false, presentation: "card" }} />
+            </Stack.Protected>
           </Stack.Protected>
         </Stack>
       </QueryClientProvider>

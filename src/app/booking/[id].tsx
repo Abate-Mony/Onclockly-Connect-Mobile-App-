@@ -1,12 +1,12 @@
 import { useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import DateTimePicker from "@react-native-community/datetimepicker"
 import dayjs from "dayjs"
 import { router, useLocalSearchParams } from "expo-router"
-import { ArrowLeft, CalendarClock, CalendarDays, CheckCircle2, Clock, MapPin, Receipt, XCircle } from "lucide-react-native"
-import { ActivityIndicator, Alert, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, View } from "react-native"
+import { ArrowLeft, CalendarClock, CalendarDays, CheckCircle2, Clock, MapPin, Receipt, Repeat, Star, XCircle } from "lucide-react-native"
+import { ActivityIndicator, Alert, Keyboard, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, View } from "react-native"
+import { DateTimePickerField, DateTimePickerSheet } from "../../components/DateTimePicker"
 import { StyledPressable as Pressable } from "../../components/StyledPressable"
-import { SafeAreaView } from "react-native-safe-area-context"
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import Toast from "react-native-toast-message"
 import { LoadingSkeleton, RetryNotice, RetryState } from "../../components/QueryStates"
 import { pressableFeedback } from "../../components/interactiveStyles"
@@ -15,87 +15,42 @@ import { useAuth } from "../../context/AuthContext"
 import { colors, radius, shadow, spacing } from "../../utils/theme"
 import { canClient } from "../../utils/clientPermissions"
 import customFetch from "../../utils/customFetch"
+import { calendarDateKey, isCalendarDayBefore } from "../../utils/dateTimePicker"
 import { formatDate, money } from "../../utils/format"
-import type { BookingResponse, JobChangeRequestsResponse } from "../../utils/types"
-
-function ModalDateField({ label, value, onChange }: { label: string; value: Date; onChange: (date: Date) => void }) {
-  const [open, setOpen] = useState(false)
-
-  return (
-    <View style={styles.modalFieldHalf}>
-      <Text style={styles.fieldLabel}>{label}</Text>
-      <Pressable
-        style={({ pressed }) => [styles.input, pressableFeedback(pressed)]}
-        onPress={() => setOpen(true)}
-      >
-        <View style={styles.inputRow}>
-          <CalendarDays size={14} color={colors.muted} />
-          <Text style={styles.inputValueText}>{dayjs(value).format("D MMM YYYY")}</Text>
-        </View>
-      </Pressable>
-
-      {open && (
-        <DateTimePicker
-          value={value}
-          mode="date"
-          minimumDate={new Date()}
-          display={Platform.OS === "ios" ? "inline" : "default"}
-          onChange={(event, selected) => {
-            if (Platform.OS === "android") setOpen(false)
-            if (event.type === "set" && selected) onChange(selected)
-          }}
-        />
-      )}
-    </View>
-  )
-}
-
-function ModalTimeField({ label, value, onChange }: { label: string; value: Date; onChange: (date: Date) => void }) {
-  const [open, setOpen] = useState(false)
-
-  return (
-    <View style={styles.modalFieldHalf}>
-      <Text style={styles.fieldLabel}>{label}</Text>
-      <Pressable
-        style={({ pressed }) => [styles.input, pressableFeedback(pressed)]}
-        onPress={() => setOpen(true)}
-      >
-        <View style={styles.inputRow}>
-          <Clock size={14} color={colors.muted} />
-          <Text style={styles.inputValueText}>{dayjs(value).format("HH:mm")}</Text>
-        </View>
-      </Pressable>
-
-      {open && (
-        <DateTimePicker
-          value={value}
-          mode="time"
-          is24Hour
-          minuteInterval={15}
-          display={Platform.OS === "ios" ? "spinner" : "default"}
-          onChange={(event, selected) => {
-            if (Platform.OS === "android") setOpen(false)
-            if (event.type === "set" && selected) onChange(selected)
-          }}
-        />
-      )}
-    </View>
-  )
-}
+import type { BookingResponse, JobChangeRequestsResponse, PortalBooking, SubmitBookingReviewInput } from "../../utils/types"
 
 function RescheduleModal({ bookingId, onClose }: { bookingId: string; onClose: () => void }) {
   const qc = useQueryClient()
+  const insets = useSafeAreaInsets()
   const [date, setDate] = useState(dayjs().add(1, "day").toDate())
-  const [startTime, setStartTime] = useState(dayjs().hour(9).minute(0).toDate())
-  const [endTime, setEndTime] = useState(dayjs().hour(11).minute(0).toDate())
+  const [startTime, setStartTime] = useState("09:00")
+  const [endTime, setEndTime] = useState("11:00")
+  const [picker, setPicker] = useState<"date" | "start" | "end" | null>(null)
   const [reason, setReason] = useState("")
+
+  function openPicker(mode: "date" | "start" | "end") {
+    Keyboard.dismiss()
+    setPicker(mode)
+  }
+
+  function closePickerOrModal() {
+    if (picker) setPicker(null)
+    else onClose()
+  }
+
+  function confirmTime(time: string | null) {
+    if (time === null) return
+    if (picker === "start") setStartTime(time)
+    else setEndTime(time)
+    setPicker(null)
+  }
 
   const mutation = useMutation({
     mutationFn: () =>
       customFetch.post(`/portal/bookings/${bookingId}/reschedule-request`, {
-        requestedDate: dayjs(date).format("YYYY-MM-DD"),
-        requestedStartTime: dayjs(startTime).format("HH:mm"),
-        requestedEndTime: dayjs(endTime).format("HH:mm"),
+        requestedDate: calendarDateKey(date),
+        requestedStartTime: startTime,
+        requestedEndTime: endTime,
         reason: reason || undefined,
       }),
     onSuccess: () => {
@@ -106,42 +61,77 @@ function RescheduleModal({ bookingId, onClose }: { bookingId: string; onClose: (
     onError: (err: any) => Toast.show({ type: "error", text1: "Couldn't submit this request", text2: err?.response?.data?.msg }),
   })
 
+  const dateIsPast = isCalendarDayBefore(date, new Date())
+  const canSubmit = !dateIsPast && !mutation.isPending
+  const errorMessage = mutation.error?.response?.data?.msg
+
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalCard}>
-          <View style={styles.modalHandle} />
-          <Text style={styles.modalTitle}>Request reschedule</Text>
-          <Text style={styles.modalSubtitle}>Tell us your preferred new date and time.</Text>
+    <Modal visible transparent animationType="slide" onRequestClose={closePickerOrModal}>
+      <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+        <Pressable accessible={false} style={StyleSheet.absoluteFill} onPress={closePickerOrModal} />
+        {picker === "date" ? (
+          <DateTimePickerSheet
+            mode="date"
+            title="Choose a new date"
+            value={date}
+            minimumDate={new Date()}
+            onCancel={() => setPicker(null)}
+            onConfirm={nextDate => {
+              setDate(nextDate)
+              setPicker(null)
+            }}
+          />
+        ) : picker ? (
+          <DateTimePickerSheet
+            key={picker}
+            mode="time"
+            title={picker === "start" ? "Choose a start time" : "Choose an end time"}
+            value={picker === "start" ? startTime : endTime}
+            onCancel={() => setPicker(null)}
+            onConfirm={confirmTime}
+          />
+        ) : (
+          <View style={[styles.modalCard, styles.rescheduleCard]}>
+            <ScrollView style={styles.rescheduleScroll} contentContainerStyle={styles.rescheduleContent} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+              <View style={styles.modalHandle} />
+              <Text style={styles.modalTitle}>Request reschedule</Text>
+              <Text style={styles.modalSubtitle}>Tell us your preferred new date and time.</Text>
 
-          <View style={styles.modalRow}>
-            <ModalDateField label="Preferred date" value={date} onChange={setDate} />
-          </View>
-          <View style={styles.modalRow}>
-            <ModalTimeField label="Start time" value={startTime} onChange={setStartTime} />
-            <ModalTimeField label="End time" value={endTime} onChange={setEndTime} />
-          </View>
+              <View style={styles.rescheduleFields}>
+                <DateTimePickerField kind="date" label="Preferred date" value={dayjs(date).format("ddd, D MMM YYYY")} onPress={() => openPicker("date")} disabled={mutation.isPending} />
+                <DateTimePickerField kind="time" label="Start time" value={startTime} onPress={() => openPicker("start")} disabled={mutation.isPending} />
+                <DateTimePickerField kind="time" label="End time" value={endTime} onPress={() => openPicker("end")} disabled={mutation.isPending} />
+                {dateIsPast && <Text accessibilityRole="alert" style={styles.dateError}>Choose today or a future date.</Text>}
+              </View>
 
-          <Text style={styles.fieldLabel}>Reason (optional)</Text>
-          <TextInput style={[styles.input, styles.textarea]} multiline value={reason} onChangeText={setReason} />
+              <Text style={styles.fieldLabel}>Reason (optional)</Text>
+              <TextInput accessibilityLabel="Reason for rescheduling, optional" style={[styles.input, styles.textarea]} multiline value={reason} onChangeText={setReason} />
+              {mutation.isError && (
+                <Text accessibilityRole="alert" style={styles.dateError}>{typeof errorMessage === "string" ? errorMessage : "Couldn't submit this request. Please try again."}</Text>
+              )}
+            </ScrollView>
 
-          <View style={styles.modalActions}>
-            <Pressable
-              style={({ pressed }) => [styles.modalCancelBtn, pressableFeedback(pressed)]}
-              onPress={onClose}
-            >
-              <Text style={styles.modalCancelText}>Cancel</Text>
-            </Pressable>
-            <Pressable
-              style={({ pressed }) => [styles.modalSubmitBtn, pressableFeedback(pressed)]}
-              disabled={mutation.isPending}
-              onPress={() => mutation.mutate()}
-            >
-              {mutation.isPending ? <ActivityIndicator color={colors.white} size="small" /> : <Text style={styles.modalSubmitText}>Submit request</Text>}
-            </Pressable>
+            <View style={[styles.modalActions, styles.rescheduleActions, { paddingBottom: Math.max(20, insets.bottom) }]}>
+              <Pressable
+                accessibilityRole="button"
+                style={({ pressed }) => [styles.modalCancelBtn, pressableFeedback(pressed)]}
+                onPress={onClose}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ disabled: !canSubmit, busy: mutation.isPending }}
+                style={({ pressed }) => [styles.modalSubmitBtn, pressableFeedback(pressed), !canSubmit && styles.rescheduleDisabled]}
+                disabled={!canSubmit}
+                onPress={() => mutation.mutate()}
+              >
+                {mutation.isPending ? <ActivityIndicator color={colors.white} size="small" /> : <Text style={styles.modalSubmitText}>Submit request</Text>}
+              </Pressable>
+            </View>
           </View>
-        </View>
-      </View>
+        )}
+      </KeyboardAvoidingView>
     </Modal>
   )
 }
@@ -189,6 +179,63 @@ function CancelModal({ bookingId, onClose }: { bookingId: string; onClose: () =>
         </View>
       </View>
     </Modal>
+  )
+}
+
+function BookingReviewCard({ booking }: { booking: PortalBooking }) {
+  const qc = useQueryClient()
+  const [rating, setRating] = useState(booking.clientRating ?? 0)
+  const [comment, setComment] = useState(booking.clientReviewComment ?? "")
+  const alreadyReviewed = booking.clientRating != null
+
+  const mutation = useMutation({
+    mutationFn: () => {
+      const input: SubmitBookingReviewInput = { rating, comment: comment.trim() || undefined }
+      return customFetch.patch(`/portal/bookings/${booking._id}/review`, input)
+    },
+    onSuccess: () => {
+      Toast.show({ type: "success", text1: alreadyReviewed ? "Review updated" : "Thanks for your feedback" })
+      qc.invalidateQueries({ queryKey: ["portal-booking", booking._id] })
+      qc.invalidateQueries({ queryKey: ["portal-bookings"] })
+    },
+    onError: (err: any) => Toast.show({ type: "error", text1: "Couldn't submit your review", text2: err?.response?.data?.msg }),
+  })
+
+  return (
+    <View style={[styles.card, shadow.md]}>
+      <Text style={styles.cardTitle}>{alreadyReviewed ? "Your review" : "Rate this booking"}</Text>
+      <View style={styles.starRow}>
+        {[1, 2, 3, 4, 5].map(value => (
+          <Pressable
+            key={value}
+            accessibilityRole="button"
+            accessibilityLabel={`${value} star${value === 1 ? "" : "s"}`}
+            hitSlop={6}
+            onPress={() => setRating(value)}
+            style={({ pressed }) => pressableFeedback(pressed)}
+          >
+            <Star size={28} color={colors.primaryDark} fill={value <= rating ? colors.primaryDark : "transparent"} strokeWidth={1.5} />
+          </Pressable>
+        ))}
+      </View>
+      <TextInput
+        style={[styles.input, styles.textarea]}
+        placeholder="Add a comment (optional)"
+        placeholderTextColor={colors.subtle}
+        multiline
+        value={comment}
+        onChangeText={setComment}
+      />
+      <Pressable
+        style={({ pressed }) => [styles.modalSubmitBtn, pressableFeedback(pressed), rating === 0 && styles.reviewSubmitDisabled]}
+        disabled={rating === 0 || mutation.isPending}
+        onPress={() => mutation.mutate()}
+      >
+        {mutation.isPending
+          ? <ActivityIndicator color={colors.white} size="small" />
+          : <Text style={styles.modalSubmitText}>{alreadyReviewed ? "Update review" : "Submit review"}</Text>}
+      </Pressable>
+    </View>
   )
 }
 
@@ -249,6 +296,7 @@ export default function BookingDetailScreen() {
   const eligible = (booking.status === "draft" || booking.status === "published") && !dayjs(booking.date).isBefore(dayjs(), "day")
   const canReschedule = eligible && canClient(user?.clientRole, "booking:update")
   const canCancel = eligible && canClient(user?.clientRole, "booking:cancel")
+  const canBookAgain = booking.status === "completed" && canClient(user?.clientRole, "booking:create")
 
   const confirmCancelRequest = () => {
     if (!pendingRequest) return
@@ -299,6 +347,18 @@ export default function BookingDetailScreen() {
                 <Text style={styles.outlineBtnText}>Request cancellation</Text>
               </Pressable>
             )}
+          </View>
+        )}
+
+        {canBookAgain && (
+          <View style={styles.actionRow}>
+            <Pressable
+              style={({ pressed }) => [styles.bookAgainBtn, shadow.sm, pressableFeedback(pressed)]}
+              onPress={() => router.push({ pathname: "/request-booking", params: { service: booking.title } })}
+            >
+              <Repeat size={14} color={colors.white} />
+              <Text style={styles.bookAgainBtnText}>Book again</Text>
+            </Pressable>
           </View>
         )}
 
@@ -368,6 +428,10 @@ export default function BookingDetailScreen() {
             </View>
           )}
         </View>
+
+        {booking.status === "completed" && canClient(user?.clientRole, "booking:update") && (
+          <BookingReviewCard booking={booking} />
+        )}
 
         {booking.chargeAmount != null && booking.chargeType === "fixed" && (
           <View style={[styles.card, shadow.md]}>
@@ -472,8 +536,31 @@ const styles = StyleSheet.create({
   costValue: { fontSize: 24, fontWeight: "800", color: colors.ink },
   costUnit: { fontSize: 13, fontWeight: "500", color: colors.muted },
 
+  starRow: { flexDirection: "row", gap: 8, marginBottom: spacing.md },
+  reviewSubmitDisabled: { opacity: 0.45 },
+
+  bookAgainBtn: {
+    flexDirection: "row",
+    gap: 6,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.primaryDark,
+    borderRadius: radius.md,
+    minHeight: 44,
+    paddingVertical: 9,
+    paddingHorizontal: spacing.md,
+  },
+  bookAgainBtnText: { fontSize: 12, fontWeight: "700", color: colors.white },
+
   modalOverlay: { flex: 1, backgroundColor: "rgba(11,18,32,0.55)", justifyContent: "flex-end" },
   modalCard: { backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: spacing.xl, paddingBottom: 32 },
+  rescheduleCard: { maxHeight: "90%", padding: 0, paddingBottom: 0, overflow: "hidden" },
+  rescheduleScroll: { flexShrink: 1 },
+  rescheduleContent: { padding: spacing.xl, paddingBottom: 0 },
+  rescheduleFields: { gap: spacing.md, marginBottom: spacing.lg },
+  rescheduleActions: { paddingHorizontal: spacing.xl, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.divider, marginTop: 0 },
+  rescheduleDisabled: { opacity: 0.45 },
+  dateError: { color: colors.danger, fontSize: 13, lineHeight: 20 },
   modalHandle: { alignSelf: "center", width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border, marginBottom: spacing.md },
   modalTitle: { fontSize: 18, fontWeight: "800", color: colors.ink },
   modalSubtitle: { fontSize: 12, color: colors.muted, marginTop: 4, marginBottom: spacing.lg },
@@ -489,10 +576,6 @@ const styles = StyleSheet.create({
     color: colors.ink,
     marginBottom: spacing.md,
   },
-  modalRow: { flexDirection: "row", gap: 10 },
-  modalFieldHalf: { flex: 1 },
-  inputRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  inputValueText: { fontSize: 13, fontWeight: "600", color: colors.ink },
   textarea: { minHeight: 70, textAlignVertical: "top" },
   modalActions: { flexDirection: "row", gap: 10, marginTop: 4 },
   modalCancelBtn: { flex: 1, minHeight: 50, alignItems: "center", justifyContent: "center", backgroundColor: colors.canvas, borderRadius: radius.md, paddingVertical: 12 },

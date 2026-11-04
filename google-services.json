@@ -1,0 +1,67 @@
+{
+  "project_info": {
+    "project_number": "172693286225",
+    "project_id": "inprn-598d2",
+    "storage_bucket": "inprn-598d2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:172693286225:android:2136b81843c7e5a5c0b770",
+        "android_client_info": {
+          "package_name": "com.inprn.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCUZMb2Euga6prtSTeKPMA9CZodttgmaro"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:172693286225:android:b6d657a981ea240ec0b770",
+        "android_client_info": {
+          "package_name": "com.onclockly.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCUZMb2Euga6prtSTeKPMA9CZodttgmaro"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:172693286225:android:cd1c56c9832dff21c0b770",
+        "android_client_info": {
+          "package_name": "com.onclockly.client"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCUZMb2Euga6prtSTeKPMA9CZodttgmaro"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
