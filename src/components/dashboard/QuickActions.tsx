@@ -4,7 +4,6 @@ import {
   Building2,
   CalendarDays,
   ChevronRight,
-  Files,
   Plus,
   UserRound,
   type LucideIcon,
@@ -34,7 +33,7 @@ export function QuickActions({
     ...(canReadBookings
       ? [{ title: "Sites", Icon: Building2, href: "/sites" as const }]
       : []),
-    { title: "Documents", Icon: Files, href: "/documents" },
+    // Documents is hidden until document sharing exists; the screen is a placeholder.
     { title: "Profile", Icon: UserRound, href: "/profile" },
   ]
 

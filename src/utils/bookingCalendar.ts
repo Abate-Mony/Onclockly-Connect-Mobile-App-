@@ -1,3 +1,4 @@
+import dayjs from "dayjs"
 import { calendarDateKey, calendarMonthDays } from "./dateTimePicker"
 import type { PortalBooking } from "./types"
 
@@ -87,4 +88,16 @@ export function bookingsInMonth(bookings: readonly PortalBooking[], month: Date)
   return uniqueValidBookings(bookings)
     .filter(booking => booking.date.slice(0, 7) === prefix)
     .sort(compareBookings)
+}
+
+// Formats a request's preferred date by its calendar day, so a date stored as
+// UTC midnight never shows as the previous day in negative-offset timezones.
+export function formatPreferredDate(iso: string, format = "ddd, D MMM YYYY"): string {
+  const key = bookingDayKey(iso)
+  return key ? dayjs(dateFromDayKey(key)).format(format) : "Date unavailable"
+}
+
+// Short, human-friendly reference for a booking request ID.
+export function requestReference(id: string): string {
+  return id.slice(-8).toUpperCase()
 }

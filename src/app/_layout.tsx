@@ -59,7 +59,7 @@ function RootNavigator() {
               <Stack.Screen name="notifications" options={{ headerShown: false }} />
               <Stack.Screen name="quote/[id]" options={{ headerShown: false }} />
               <Stack.Screen name="invoice/[id]" options={{ headerShown: false }} />
-              <Stack.Screen name="booking/[id]" options={{ headerShown: false }} />
+              <Stack.Screen name="booking" options={{ headerShown: false }} />
               <Stack.Screen name="sites" options={{ headerShown: false }} />
               <Stack.Screen name="site/[id]" options={{ headerShown: false }} />
               <Stack.Screen name="documents" options={{ headerShown: false }} />

@@ -22,7 +22,7 @@ export function NotificationRuntime() {
     const current = () => !disposed && isCurrentSession(version)
     const refreshBookings = () => {
       if (!current()) return
-      for (const key of ["portal-notifications", "portal-bookings", "portal-booking-requests", "portal-booking", "portal-booking-change-requests"]) {
+      for (const key of ["portal-notifications", "portal-bookings", "portal-booking-requests", "portal-booking-request", "portal-booking", "portal-booking-change-requests"]) {
         void queryClient.invalidateQueries({ queryKey: [key] })
       }
     }

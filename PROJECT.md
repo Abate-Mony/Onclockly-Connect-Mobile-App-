@@ -928,12 +928,12 @@ an exploited security issue. No fixes were made as part of this documentation.
 | Non-booking notifications cannot navigate | Onboarding advertises quote/invoice updates, but the destination resolver supports only booking links. Runtime also invalidates booking/notif caches rather than quote/invoice caches. |
 | Push tap does not mark the inbox entry read | Runtime handles navigation/refetch only; no read mutation is made for the system-tap path. |
 | Permission status is not delivery readiness | `getClientPushStatus` measures OS permission; Runtime suppresses registration failures. “Phone alerts allowed” does not establish server registration or successful delivery. |
-| Blank site-detail failure/missing state | `site/[id].tsx` returns null without data; no error/retry/missing-record UI. Sites list also lacks retry/pull refresh. |
+| Sites list lacks retry/pull refresh | `site/[id].tsx` now shows a RetryState on failure/missing record; the Sites list itself still has no retry or pull-to-refresh. |
 | Secondary booking-request errors are hidden | Booking detail does not surface change-request query loading/error; failure looks like no pending request until server rejects conflicting actions. |
 | Incomplete UI permission gates | Linked invoice action lacks invoice-read gating; pending-change Withdraw lacks update/cancel gating. Many direct stack routes do not preempt unauthorized API reads. |
 | Local list counts/search are partial | List filters operate on loaded pages; quote review count and invoice summaries differ from exact/all-page dashboard calculations. |
 | Date/time interpretations differ | Dashboard reconstructs service wall times in phone timezone. Booking list/eligibility use calendar-day checks. Types expose no service timezone or UTC scheduled instants. |
-| Help/feature copy exceeds implementation | Profile refers to “Forgot password” absent from Login. Sites mentions booking history absent from site detail. Documents is explicitly unfinished. |
+| Documents is unfinished | `documents.tsx` is a "coming soon" placeholder. Its Quick Actions entry is hidden; the route still exists. Profile and Sites copy were corrected to match what is implemented. |
 | Type/error duplication | `PaginatedResponse<T>` has an unused generic; multiple API errors use `any`, some snapshots use loose records, and JSON is not runtime validated. |
 | Styling/form duplication | Repeated headers/cards/pickers, hardcoded palette/radius values, differing pressed-state approaches and unused Home styles. |
 | Starter maintenance material remains | Stock README and reset utility coexist with production screens. Reset can move/delete application trees; it is not normal cleanup. |

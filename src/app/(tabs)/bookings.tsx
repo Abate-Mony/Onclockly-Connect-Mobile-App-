@@ -67,7 +67,12 @@ function YourRequests() {
       )}
       {requests.map((r: PortalBookingRequest) => (
         <View key={r._id} style={[styles.requestCard, shadow.sm]}>
-          <View style={styles.flex1}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`View request for ${r.service}`}
+            onPress={() => router.push({ pathname: "/booking/request/[id]", params: { id: r._id } })}
+            style={({ pressed }) => [styles.flex1, pressableFeedback(pressed)]}
+          >
             <View style={styles.requestTitleRow}>
               <Text style={styles.requestService} numberOfLines={1}>{r.service}</Text>
               <StatusBadge status={r.status} />
@@ -76,7 +81,7 @@ function YourRequests() {
               Preferred {bookingDayKey(r.preferredDate) ? dayjs(dateFromDayKey(r.preferredDate.slice(0, 10))).format("D MMM YYYY") : "date unavailable"}{r.preferredTime ? ` · ${r.preferredTime}` : ""}
             </Text>
             {r.status === "declined" && !!r.reviewNotes && <Text style={styles.requestMeta}>{r.reviewNotes}</Text>}
-          </View>
+          </Pressable>
           {r.status === "pending" && (
             <Pressable
               accessibilityRole="button"

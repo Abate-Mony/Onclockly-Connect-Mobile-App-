@@ -107,7 +107,7 @@ export default function ProfileScreen() {
           <View style={styles.helpCopy}>
             <Text style={styles.helpTitle}>Need to update your details?</Text>
             <Text style={styles.helpText}>
-              Contact your service provider to change your account information. Use “Forgot password” on sign-in to reset your password.
+              Contact your service provider to change your account information or reset your password.
             </Text>
           </View>
         </View>

@@ -179,14 +179,25 @@ export interface PortalBookingRequest {
   status: BookingRequestStatus
   reviewNotes?: string
   convertedJob: string | null
+  // Shared by requests submitted together for several dates; null otherwise.
+  batch?: string | null
   createdAt: string
+}
+
+export interface BookingRequestSlotInput {
+  preferredDate: string
+  preferredTime?: string
 }
 
 export interface CreateBookingRequestInput {
   service: string
-  preferredDate: string
-  preferredTime?: string
+  dates: BookingRequestSlotInput[]
   notes?: string
+}
+
+export interface CreateBookingRequestResponse {
+  request: PortalBookingRequest
+  requests: PortalBookingRequest[]
 }
 
 // ── Job change requests (reschedule/cancel) ─────────────────────────────

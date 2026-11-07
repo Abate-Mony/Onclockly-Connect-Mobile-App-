@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query"
 import { router, useLocalSearchParams } from "expo-router"
 import { ArrowLeft, Mail, MapPin, Phone } from "lucide-react-native"
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native"
+import { RetryState } from "../../components/QueryStates"
 import { StyledPressable as Pressable } from "../../components/StyledPressable"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { pressableFeedback } from "../../components/interactiveStyles"
@@ -11,7 +12,7 @@ import type { SiteResponse } from "../../utils/types"
 
 export default function SiteDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["portal-site", id],
     queryFn: async () => {
       const { data } = await customFetch.get<SiteResponse>(`/portal/sites/${id}`)
@@ -28,7 +29,23 @@ export default function SiteDetailScreen() {
       </SafeAreaView>
     )
   }
-  if (!site) return null
+  if (!site) {
+    return (
+      <SafeAreaView style={styles.screen} edges={["top"]}>
+        <View style={styles.topBar}>
+          <Pressable onPress={() => router.back()} style={({ pressed }) => [styles.backBtn, pressableFeedback(pressed)]}>
+            <ArrowLeft size={18} color={colors.ink} />
+            <Text style={styles.backText}>Sites</Text>
+          </Pressable>
+        </View>
+        <RetryState
+          title={isError ? "Couldn’t load this site" : "Site unavailable"}
+          message={isError ? "Check your connection and try again." : "This site may no longer be available."}
+          onRetry={() => { refetch() }}
+        />
+      </SafeAreaView>
+    )
+  }
 
   return (
     <SafeAreaView style={styles.screen} edges={["top"]}>

@@ -52,7 +52,7 @@ export default function SitesScreen() {
       <View style={styles.header}>
         <Text style={styles.eyebrow}>YOUR LOCATIONS</Text>
         <Text style={styles.title}>Sites</Text>
-        <Text style={styles.subtitle}>Your service addresses and booking history</Text>
+        <Text style={styles.subtitle}>Your service addresses and site contacts</Text>
       </View>
 
       {isLoading ? (
