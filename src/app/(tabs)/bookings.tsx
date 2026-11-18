@@ -1,25 +1,25 @@
-import { useState } from "react"
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import dayjs from "dayjs"
 import { Redirect, router } from "expo-router"
 import { AlertCircle, CalendarDays, ChevronRight, List, Plus } from "lucide-react-native"
+import { useState } from "react"
 import { FlatList, RefreshControl, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native"
-import { StyledPressable as Pressable } from "../../components/StyledPressable"
 import { SafeAreaView } from "react-native-safe-area-context"
 import Toast from "react-native-toast-message"
-import { SearchAndFilters } from "../../components/SearchAndFilters"
 import { BookingCalendarView } from "../../components/bookings/BookingCalendarView"
-import type { FilterOption } from "../../components/SearchAndFilters"
-import { LoadMoreButton, LoadingSkeleton, RetryNotice, RetryState } from "../../components/QueryStates"
 import { pressableFeedback } from "../../components/interactiveStyles"
+import { LoadMoreButton, LoadingSkeleton, RetryNotice, RetryState } from "../../components/QueryStates"
+import type { FilterOption } from "../../components/SearchAndFilters"
+import { SearchAndFilters } from "../../components/SearchAndFilters"
 import { StatusBadge } from "../../components/StatusBadge"
+import { StyledPressable as Pressable } from "../../components/StyledPressable"
 import { useAuth } from "../../context/AuthContext"
 import { useTabBarClearance } from "../../hooks/useTabBarClearance"
-import { colors, radius, shadow, spacing } from "../../utils/theme"
+import { bookingDayKey, dateFromDayKey, serviceTodayKey } from "../../utils/bookingCalendar"
 import { canClient } from "../../utils/clientPermissions"
 import customFetch from "../../utils/customFetch"
-import { bookingDayKey, dateFromDayKey, serviceTodayKey } from "../../utils/bookingCalendar"
 import { startOfCalendarMonth } from "../../utils/dateTimePicker"
+import { colors, radius, shadow, spacing } from "../../utils/theme"
 import type { BookingRequestsResponse, BookingsResponse, PortalBooking, PortalBookingRequest } from "../../utils/types"
 
 type BookingFilter = "all" | "upcoming" | "past" | "completed" | "cancelled"
@@ -65,35 +65,40 @@ function YourRequests() {
           onRetry={() => { refetch() }}
         />
       )}
-      {requests.map((r: PortalBookingRequest) => (
-        <View key={r._id} style={[styles.requestCard, shadow.sm]}>
+      {requests.map((r: PortalBookingRequest) => {
+        const key = bookingDayKey(r.preferredDate)
+        const date = key ? dateFromDayKey(key) : null
+        return (
           <Pressable
+            key={r._id}
             accessibilityRole="button"
-            accessibilityLabel={`View request for ${r.service}`}
+            accessibilityLabel={`Request for ${r.service}, ${date ? dayjs(date).format("D MMM YYYY") : "Date unavailable"}${r.preferredTime ? `, ${r.preferredTime}` : ""}, ${r.status}`}
             onPress={() => router.push({ pathname: "/booking/request/[id]", params: { id: r._id } })}
-            style={({ pressed }) => [styles.flex1, pressableFeedback(pressed)]}
+            style={({ pressed }) => [styles.card, shadow.md, pressableFeedback(pressed)]}
           >
-            <View style={styles.requestTitleRow}>
-              <Text style={styles.requestService} numberOfLines={1}>{r.service}</Text>
-              <StatusBadge status={r.status} />
+            <View style={styles.cardTopRow}>
+              <View style={styles.dateChip}>
+                <Text style={styles.dateChipMonth}>{date ? dayjs(date).format("MMM").toUpperCase() : "—"}</Text>
+                <Text style={styles.dateChipDay}>{date ? date.getDate() : "—"}</Text>
+              </View>
+              <View style={styles.flex1}>
+       <View className="flex-row items-center justify-between gap-2">
+                 <Text style={styles.cardTitle} numberOfLines={1}>{r.service}</Text>
+              <ChevronRight size={16} color={colors.subtle} />
+
+       </View>
+                <View className="bg-black/15 h-px my-1 w-full"/>
+                <View style={styles.requestMetaRow}>
+                  <Text style={styles.requestMetaText} numberOfLines={1}>{r.preferredTime ? `${r.preferredTime} · Requested` : "Requested"}</Text>
+                  <StatusBadge status={r.status} />
+                </View>
+                {r.status === "declined" && !!r.reviewNotes && <Text style={styles.requestMeta}>{r.reviewNotes}</Text>}
+              </View>
             </View>
-            <Text style={styles.requestMeta}>
-              Preferred {bookingDayKey(r.preferredDate) ? dayjs(dateFromDayKey(r.preferredDate.slice(0, 10))).format("D MMM YYYY") : "date unavailable"}{r.preferredTime ? ` · ${r.preferredTime}` : ""}
-            </Text>
-            {r.status === "declined" && !!r.reviewNotes && <Text style={styles.requestMeta}>{r.reviewNotes}</Text>}
+            {/* Cancel button (pending only) was here; re-add with cancelMutation if needed. */}
           </Pressable>
-          {r.status === "pending" && (
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => cancelMutation.mutate(r._id)}
-              disabled={cancelMutation.isPending}
-              style={({ pressed }) => [styles.cancelButton, pressableFeedback(pressed)]}
-            >
-              <Text style={styles.cancelLink}>Cancel</Text>
-            </Pressable>
-          )}
-        </View>
-      ))}
+        )
+      })}
     </View>
   )
 }
@@ -344,18 +349,10 @@ const styles = StyleSheet.create({
   listScreenHeader: { marginHorizontal: -spacing.xl, marginBottom: -spacing.lg },
 
   sectionLabel: { fontSize: 11, fontWeight: "800", color: colors.subtle, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 },
-  requestsBlock: { marginTop: 1, marginBottom: 2, gap: 8 },
-  requestCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  requestTitleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  requestService: { fontSize: 14, fontWeight: "700", color: colors.ink, flexShrink: 1 },
-  requestMeta: { fontSize: 12, color: colors.muted, marginTop: 4 },
+  requestsBlock: { marginTop: 1, marginBottom: 2, gap: spacing.md },
+  requestMeta: { fontSize: 13, lineHeight: 18, color: colors.muted, marginTop: 4 },
+  requestMetaRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm, marginTop: 6 },
+  requestMetaText: { flexShrink: 1, fontSize: 13, lineHeight: 18, color: colors.muted },
   cancelButton: { minHeight: 44, justifyContent: "center", paddingHorizontal: 8 },
   cancelLink: { fontSize: 12, fontWeight: "700", color: colors.danger },
 
@@ -377,7 +374,7 @@ const styles = StyleSheet.create({
   dateChipDay: { color: colors.ink, fontSize: 18, fontWeight: "800" },
   cardTitleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
   cardTitle: { fontSize: 15, fontWeight: "700", color: colors.ink, flexShrink: 1 },
-  cardMeta: { fontSize: 12, color: colors.muted, marginTop: 6 },
+  cardMeta: { fontSize: 13, lineHeight: 18, color: colors.muted, marginTop: 6 },
 
   empty: { marginTop: 60, alignItems: "center", gap: 8, paddingHorizontal: 24 },
   emptyTitle: { fontSize: 15, fontWeight: "700", color: colors.ink },

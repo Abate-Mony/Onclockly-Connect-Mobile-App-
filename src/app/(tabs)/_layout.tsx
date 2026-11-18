@@ -94,7 +94,6 @@ export default function TabLayout() {
           tabBarIcon: ({ focused }) => <TabIcon Icon={User} focused={focused} />,
         }}
       />
-      <Tabs.Screen name="quotes" options={{ title: "Quotes", href: null }} />
     </Tabs>
   )
 }

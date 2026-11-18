@@ -1,0 +1,13 @@
+name: Create Development Builds
+
+# No `on:` trigger, so this only runs when started manually:
+#   npx eas-cli workflow:run .eas/workflows/create-development-builds.yml
+# or from the Workflows tab on expo.dev.
+
+jobs:
+  build_ios:
+    name: Build iOS development client
+    type: build
+    params:
+      platform: ios
+      profile: development

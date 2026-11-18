@@ -1,10 +1,11 @@
+import { ExternalLink } from "@/components/external_url"
+import { isAxiosError } from "axios"
+import { CalendarCheck2, Eye, EyeOff, LockKeyhole, Mail } from "lucide-react-native"
 import { useState } from "react"
 import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from "react-native"
-import { StyledPressable as Pressable } from "../components/StyledPressable"
 import { SafeAreaView } from "react-native-safe-area-context"
-import { CalendarCheck2, Eye, EyeOff, LockKeyhole, Mail } from "lucide-react-native"
-import { isAxiosError } from "axios"
 import Toast from "react-native-toast-message"
+import { StyledPressable as Pressable } from "../components/StyledPressable"
 import { useAuth } from "../context/AuthContext"
 import customFetch from "../utils/customFetch"
 import { colors, radius, shadow, spacing } from "../utils/theme"
@@ -99,7 +100,9 @@ export default function LoginScreen() {
                 </Pressable>
               </View>
             </View>
-
+            <ExternalLink url="https://app.onclockly.com/auth/forgot-password">
+              Forget password?
+            </ExternalLink>
             <Pressable
               onPress={handleSignIn}
               disabled={!canSubmit}

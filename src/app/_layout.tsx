@@ -57,6 +57,7 @@ function RootNavigator() {
             <Stack.Protected guard={!needsNotificationOnboarding}>
               <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
               <Stack.Screen name="notifications" options={{ headerShown: false }} />
+              <Stack.Screen name="quotes" options={{ headerShown: false }} />
               <Stack.Screen name="quote/[id]" options={{ headerShown: false }} />
               <Stack.Screen name="invoice/[id]" options={{ headerShown: false }} />
               <Stack.Screen name="booking" options={{ headerShown: false }} />
@@ -66,6 +67,7 @@ function RootNavigator() {
               <Stack.Screen name="request-booking" options={{ headerShown: false, presentation: "card" }} />
             </Stack.Protected>
           </Stack.Protected>
+          <Stack.Screen name="+not-found" options={{ headerShown: false }} />
         </Stack>
       </QueryClientProvider>
     </ThemeProvider>

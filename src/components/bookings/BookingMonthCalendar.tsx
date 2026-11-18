@@ -20,7 +20,11 @@ export type BookingMonthCalendarProps = {
   unavailable?: boolean
 }
 
-const WEEKDAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"]
+// Single letters, matching the worker app's own schedule calendar exactly
+// (timeshift-mobile's DAY_LABELS) — Tuesday/Thursday and Saturday/Sunday
+// repeat a letter, which is fine for a header row read left-to-right
+// against the day numbers below it, never on its own.
+const WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"]
 const MINIMUM_CARD_WIDTH = 7 * 44 + 2
 
 // Matches the colour language of the worker app's own schedule calendar —
@@ -105,7 +109,7 @@ export function BookingMonthCalendar({
 
         <View style={{ paddingHorizontal: calendarGutter }}>
           <View style={styles.weekdays} importantForAccessibility="no-hide-descendants">
-            {WEEKDAYS.map(day => <Text key={day} maxFontSizeMultiplier={1.6} style={styles.weekday}>{day}</Text>)}
+            {WEEKDAYS.map((day, index) => <Text key={index} maxFontSizeMultiplier={1.6} style={styles.weekday}>{day}</Text>)}
           </View>
           <View style={styles.days}>
             {calendarMonthDays(month).map(date => {
@@ -195,7 +199,7 @@ const styles = StyleSheet.create({
   stackedControls: { alignSelf: "flex-end" },
   navigationButton: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: radius.sm, backgroundColor: colors.canvas },
   weekdays: { flexDirection: "row", paddingVertical: spacing.sm },
-  weekday: { width: `${100 / 7}%`, color: colors.muted, textAlign: "center", fontSize: 10, lineHeight: 16, fontWeight: "600", letterSpacing: 0.2 },
+  weekday: { width: `${100 / 7}%`, color: colors.muted, textAlign: "center", fontSize: 11, lineHeight: 16, fontWeight: "700" },
   days: { flexDirection: "row", flexWrap: "wrap" },
   dayTarget: { width: `${100 / 7}%`, minHeight: 48, alignItems: "center", justifyContent: "flex-start", paddingVertical: 2, gap: 3 },
   dayPill: { width: "92%", maxWidth: 44, minHeight: 32, alignItems: "center", justifyContent: "center", borderRadius: radius.pill },
